@@ -1,6 +1,5 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/user');
-const Credential = require('../models/credentials');
 const RegistrationCredentials = require('../models/registrationCredentials');
 const {secret} = require('../configs/auth');
 
@@ -9,55 +8,55 @@ module.exports.register = (request, response) => {
     const {email, password, role} = request.body;
     const createdDate = new Date();
     const user = new User({email, createdDate});
-    const credential = new Credential({email, password});
     const regCredential = new RegistrationCredentials({email, password,role});
     regCredential.save()
         .then(() => {
             if (!email || !password || !role) {
-                return   response.status(400).json({massage: "string"});
+                return   response.status(400).json({massage: "Bad request"});
             }
             user.save()
                 .catch(() => {
-                    return  response.status(500).json({massage: "string"});
+                    return  response.status(500).json({massage: "Server error"});
                 });
-            credential.save()
-                .catch(() =>{
-                    return  response.status(500).json({massage: "string"});
-                })
             return  response.json({massage: 'Success'});
         })
         .catch(() => {
-            return  response.status(500).json({massage: "string"});
+            return  response.status(500).json({massage: "Server error"});
         });
 }
 
 module.exports.login = (request, response) => {
 
     const {email, password} = request.body;
+    let user;
+    User.findOne({email}).exec()
+        .then(selectedUser =>{
+            user = selectedUser;
+        })
+        .catch((err) => response.status(500).json({massage: err} ));
 
     RegistrationCredentials.findOne({email, password}).exec()
-        .then(user => {
-            if (!user) {
-                return response.status(400).json({massage: "string"});
+        .then(selectedUser => {
+            if (!selectedUser) {
+                return response.status(400).json({massage: "Wrong email or password"});
             }
-            return  response.json({massage: 'success', token: jwt.sign(JSON.stringify(user), secret)});
-        })
-        .catch(() => {
-            return  response.status(500).json({massage: "string"});
-        });
-}
-module.exports.forgot_password = (request, response) => {
 
-    const {email} = request.body;
-
-    Credential.findOne({email}).exec()
-        .then(user => {
-            if (!user) {
-                return response.status(400).json({massage: "string"});
+            let jwtObj = {
+                regCred: {
+                    _id : selectedUser._id,
+                    role: selectedUser.role,
+                    password: selectedUser.password,
+                    email: selectedUser.email
+                },
+                user:{
+                    _id: user._id,
+                    createdDate: user.createdDate,
+                    email: user.email
+                }
             }
-            return  response.json({massage: 'New password sent to your email address',});
+            return  response.json({massage: 'success', token: jwt.sign(JSON.stringify(jwtObj), secret)});
         })
-        .catch(() => {
-            return  response.status(500).json({massage: "string"});
+        .catch((err) => {
+            return  response.status(500).json({massage: err});
         });
 }

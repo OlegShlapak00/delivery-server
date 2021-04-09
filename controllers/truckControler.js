@@ -1,178 +1,118 @@
-const jwt = require('jsonwebtoken');
+
 const Truck = require('../models/truck');
-const User = require('../models/user');
 
 module.exports.getTrucks = (request, response) => {
-    const [, token] = request.headers.authorization.split(' ');
-    const userRole = jwt.decode(token).role;
-    const userEmail = jwt.decode(token).email;
-    if (userRole !== "DRIVER") {
-        return response.status(400).json({massage: "string"});
-    }
+    const userID = request.token.user._id;
 
-    User.findOne({email:userEmail})
-        .then(user =>{
-            if(!user){
-                response.status(500).json({massage: "string"});
-            }
-            console.log(user._id);
-            Truck.find({created_by: user._id}, {__v: 0})
-                .exec()
-                .then(trucks => {
-                    return response.status(200).json({trucks: trucks});
-                })
-                .catch(() => {
-                    response.status(500).json({massage: "string"});
-                });
+    Truck.find({created_by: userID}, {__v: 0})
+        .exec()
+        .then(trucks => {
+            return response.status(200).json({trucks: trucks});
         })
-        .catch(() => {
-            response.status(500).json({massage: "string"});
+        .catch((err) => {
+            response.status(500).json({massage: err});
         });
-
 
 }
 
 module.exports.getTrucksById = (request, response) => {
-    const [, token] = request.headers.authorization.split(' ');
+    const userID = request.token.user._id;
     const TruckId = request.params.id;
-    const userEmail = jwt.decode(token).email;
-    const userRole = jwt.decode(token).role;
 
-    if (userRole !== "DRIVER") {
-        return response.status(400).json({massage: "string"});
-    }
-    User.findOne({email:userEmail})
-        .then(user =>{
-            if(!user){
-                response.status(500).json({massage: "string"});
-            }
-            console.log(user._id);
-            Truck.findOne({created_by: user._id, _id:TruckId }, {__v: 0})
-                .exec()
-                .then(trucks => {
-                    return response.status(200).json({truck: trucks});
-                })
-                .catch(() => {
-                    response.status(500).json({massage: "string"});
-                });
+
+    Truck.findOne({created_by: userID, _id:TruckId }, {__v: 0})
+        .exec()
+        .then(trucks => {
+            return response.status(200).json({truck: trucks});
         })
-        .catch(() => {
-            response.status(500).json({massage: "string"});
+        .catch((err) => {
+            response.status(500).json({massage: err});
         });
 }
 
 module.exports.addTruck = (request, response) => {
-    const [, token] = request.headers.authorization.split(' ');
-    let id; //user id
-    const userRole = jwt.decode(token).role;
-    const userEmail = jwt.decode(token).email;
+    const userID = request.token.user._id;
     const {type} = request.body;
     const status = "OS";
     const created_date = new Date();
-
-    User.findOne({email: userEmail})
-        .then(user => {
-            if (!user) {
-                return response.status(500).json({massage: "string"});
-            }
-            id = user._id;
-            const truck = new Truck({"created_by": id, "assign_to": "null", type, status, created_date});
-            truck.save()
-                .then(() => {
-                    if (!type || userRole !== "DRIVER") {
-                        return response.status(400).json({massage: "bad"});
-                    }
-                    return response.status(200).json({massage: 'Truck created successfully'});
-                })
-                .catch((arr) => {
-                    return response.status(500).json({massage: arr});
-                });
+    if (!type ) {
+        return response.status(400).json({massage: "bad request"});
+    }
+    const truck = new Truck(
+        {
+            "created_by": userID,
+            "assign_to": "null",
+            type,
+            status,
+            created_date
+        });
+    truck.save()
+        .then(() => {
+            return response.status(200).json({massage: 'Truck created successfully'});
         })
-        .catch(() => {
-            response.status(500).json({massage: "string"});
+        .catch((err) => {
+            return response.status(500).json({massage: err});
         });
 }
 
 module.exports.updateTruck = (request, response) => {
-    const [, token] = request.headers.authorization.split(' ');
     const TruckId = request.params.id;
     const newType = request.body.type;
-    const userRole = jwt.decode(token).role;
-
-    if (userRole !== "DRIVER") {
-        return response.status(400).json({massage: "string"});
+    if(newType !=="SPRINTER"&& newType !=="SMALL STRAIGHT" && newType !=="LARGE STRAIGHT"){
+        return response.status(400).json({massage: "Wrong truck type"});
     }
 
-    Truck.findOne({_id: TruckId})
-        .then(truck => {
-            if (!truck || truck.assign_to !== "null") {
-                return response.status(400).json({massage: "string"});
+    Truck.findOneAndUpdate({"_id": TruckId},{"type": newType})
+        .then( (oldTruckData) =>{
+            if(oldTruckData){
+                return response.status(200).json({massage: "Truck details changed successfully"});
             }
-            Truck.updateOne({_id: TruckId}, {type: newType})
-                .exec()
-                .then(() => {
-                    return response.status(200).json({massage: "Truck details changed successfully"});
-                })
-                .catch(() => {
-                    response.status(500).json({massage: "string"});
-                });
+            return response.status(500).json({massage: "Something wrong"});
         })
-        .catch(() => {
-            response.status(500).json({massage: "string"});
-        });
+        .catch( err => response.status(500).json({massage: err}));
 }
 
 module.exports.deleteTruck = (request, response) => {
-    const [, token] = request.headers.authorization.split(' ');
-    const TruckId = request.params.id;
-    const userRole = jwt.decode(token).role;
 
-    if (userRole !== "DRIVER") {
-        return response.status(400).json({massage: "string"});
-    }
-    Truck.findOne({_id: TruckId})
-        .then(truck => {
-            if (!truck || truck.assign_to !== "null") {
-                return response.status(400).json({massage: "string"});
+    const TruckId = request.params.id;
+
+    Truck.findOneAndDelete({"_id": TruckId})
+        .then((deletedTruck) =>{
+            if(deletedTruck){
+                return response.status(200).json({massage: "Truck deleted successfully"});
             }
-            Truck.deleteOne({_id: TruckId})
-                .then(() => {
-                    return response.status(200).json({massage: "Truck deleted successfully"});
-                })
-                .catch(() => {
-                    response.status(500).json({massage: "string"});
-                });
+            return response.status(400).json({massage: "Cann`t find a truck"});
         })
-        .catch(() => {
-            response.status(500).json({massage: "string"});
-        });
+        .catch(err  => response.status(500).json({massage: err}))
 }
 
 module.exports.assignTo = (request, response) => {
-    const [, token] = request.headers.authorization.split(' ');
+    const userId = request.token.user._id;
     const TruckId = request.params.id;
-    const userRole = jwt.decode(token).role;
-    const userEmail = jwt.decode(token).email;
-
-    if (userRole !== "DRIVER") {
-        return response.status(400).json({massage: "string"});
-    }
-
-    User.findOne({"email":userEmail})
-        .then(user =>{
-            if(!user){
-                return response.status(500).json({massage: "string"});
+    Truck.updateOne({_id: TruckId}, {assign_to: userId, "status": "IS"})
+        .exec()
+        .then(truck => {
+            if (!truck) {
+                return response.status(400).json({massage: "Wrong truck id"});
             }
-            Truck.updateOne({_id: TruckId}, {assign_to: user._id})
-                .exec()
-                .then(truck => {
-                    if (!truck) {
-                        return response.status(400).json({massage: "string"});
-                    }
-                    return response.status(200).json({massage: "Truck assigned successfully"});
-                })
-                .catch(() => {
-                    response.status(500).json({massage: "string"});
-                });
+            return response.status(200).json({massage: "Truck assigned successfully"});
         })
+        .catch((err) => {
+            response.status(500).json({massage: err});
+        });
+}
+module.exports.unAssign = (request, response) => {
+    const userId = request.token.user._id;
+    const TruckId = request.params.id;
+    Truck.updateOne({_id: TruckId,"assign_to":userId}, {assign_to: "null", "status": "OS"})
+        .exec()
+        .then(truck => {
+            if (!truck) {
+                return response.status(400).json({massage: "Wrong truck id"});
+            }
+            return response.status(200).json({massage: "Truck unAssigned successfully"});
+        })
+        .catch((err) => {
+            response.status(500).json({massage: err});
+        });
 }

@@ -4,7 +4,7 @@ const authMiddleware = require('../middleware/authMiddleware');
 
 const { getMe, deleteMe, changePassword } = require("../controllers/userColtroler");
 
-router.get('/users/me', authMiddleware , getMe);
+router.get('/users/me', authMiddleware, getMe);
 router.delete('/users/me',authMiddleware, deleteMe);
 router.patch('/users/me/password',authMiddleware, changePassword);
 

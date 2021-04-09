@@ -9,7 +9,7 @@ module.exports = (request, response, next) => {
 
     const [, jwtToken] = authHeader.split(' ');
     try {
-        request.user = jwt.verify(jwtToken, secret);
+        request.token = jwt.verify(jwtToken, secret);
         next();
     } catch (err) {
         return response.status(400).json({status: 'Invalid JWT'});
