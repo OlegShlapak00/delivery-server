@@ -14,6 +14,15 @@ mongoose.connect(`mongodb+srv://user:12345@cluster0.hnyca.mongodb.net/NODEJS_HW3
     useCreateIndex: true
 });
 
+app.use(express.static('public'));
+
+app.get('/', (req, res) => {
+    res.sendFile(__dirname + '/index.html');
+});
+
+
+
+
 app.use(express.json());
 
 app.use("/api",authRouter);
